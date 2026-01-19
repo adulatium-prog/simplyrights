@@ -1,0 +1,212 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Send, Menu, Shield, Info, Euro, Calendar, BookOpen, X, MessageCircle, User } from 'lucide-react';
+
+// --- LOGIQUE DU CHATBOT (Simulée) ---
+// Dans une vraie app, cela serait connecté à une API ou une base de données vectorielle.
+
+const KNOWLEDGE_BASE = [
+  {
+    keywords: ['salaire', 'rémunération', 'paie', 'smic', 'argent'],
+    response: "En contrat d'apprentissage, votre rémunération dépend de votre âge et de votre ancienneté dans le contrat. \n\nVoici les bases (en % du SMIC 2024) :\n• Moins de 18 ans : 27% (1e année)\n• 18 à 20 ans : 43% (1e année)\n• 21 à 25 ans : 53% (1e année)\n• 26 ans et + : 100% du SMIC.\n\nSouhaitez-vous faire une simulation ?"
+  },
+  {
+    keywords: ['congé', 'vacance', 'repos', 'rtt'],
+    response: "En tant qu'alternant, vous avez les mêmes droits que les autres salariés : 5 semaines de congés payés par an.\n\n⚠️ Bonus : Vous bénéficiez de 5 jours ouvrables supplémentaires pour réviser vos examens (dans le mois qui précède les épreuves). Ces jours sont payés !"
+  },
+  {
+    keywords: ['rupture', 'démission', 'licenciement', 'arreter', 'quitter'],
+    response: "La rupture du contrat d'apprentissage est encadrée :\n1. Pendant la période d'essai (45 jours en entreprise) : rupture libre sans motif.\n2. Après la période d'essai : rupture possible uniquement par accord amiable (écrit), faute grave, ou inaptitude.\n\nLa démission simple n'existe pas, il faut passer par un médiateur de l'apprentissage."
+  },
+  {
+    keywords: ['aide', 'mobilijeune', 'caf', 'prime', 'logement'],
+    response: "Voici les principales aides pour les alternants :\n• Mobili-Jeune (Action Logement) : jusqu'à 100€/mois pour le loyer.\n• Prime d'activité (CAF) : sous conditions de revenus.\n• Aide au permis B : 500€ forfaitaire (via le CFA).\n• Carte étudiant des métiers : réductions (ciné, transports...)."
+  },
+  {
+    keywords: ['bonjour', 'salut', 'hello', 'coucou'],
+    response: "Bonjour ! Je suis l'assistant SimplyRights. Je peux répondre à vos questions sur votre contrat, votre salaire ou vos droits. Comment puis-je vous aider ?"
+  }
+];
+
+const DEFAULT_RESPONSE = "Je n'ai pas la réponse exacte dans ma base de données actuelle. Pour cette question juridique spécifique, je vous conseille de contacter votre médiateur ou un expert SimplyRights via le formulaire de contact.";
+
+// --- COMPOSANTS ---
+
+const QuickAction = ({ icon: Icon, label, onClick }) => (
+  <button 
+    onClick={onClick}
+    className="flex flex-col items-center justify-center p-3 bg-white border border-slate-200 rounded-xl shadow-sm hover:bg-blue-50 hover:border-blue-200 transition-all duration-200 group"
+  >
+    <div className="p-2 bg-blue-100 text-blue-600 rounded-full mb-2 group-hover:scale-110 transition-transform">
+      <Icon size={20} />
+    </div>
+    <span className="text-xs font-medium text-slate-600 group-hover:text-blue-700">{label}</span>
+  </button>
+);
+
+const ChatMessage = ({ message }) => {
+  const isBot = message.sender === 'bot';
+  
+  return (
+    <div className={`flex w-full mb-4 ${isBot ? 'justify-start' : 'justify-end'}`}>
+      <div className={`flex max-w-[85%] ${isBot ? 'flex-row' : 'flex-row-reverse'}`}>
+        
+        {/* Avatar */}
+        <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center mt-1 ${isBot ? 'bg-blue-600 text-white mr-2' : 'bg-slate-200 text-slate-600 ml-2'}`}>
+          {isBot ? <Shield size={16} /> : <User size={16} />}
+        </div>
+
+        {/* Bulle de message */}
+        <div className={`p-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+          isBot 
+            ? 'bg-white border border-slate-100 text-slate-800 shadow-sm rounded-tl-none' 
+            : 'bg-blue-600 text-white rounded-tr-none shadow-md'
+        }`}>
+          {message.text}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default function SimplyRightsApp() {
+  const [messages, setMessages] = useState([
+    { id: 1, sender: 'bot', text: "Bonjour ! Bienvenue chez SimplyRights ⚖️.\nJe suis là pour répondre à vos questions sur votre alternance (droits, salaire, aides...).\n\nQue souhaitez-vous savoir ?" }
+  ]);
+  const [inputValue, setInputValue] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isTyping]);
+
+  const generateBotResponse = (userText) => {
+    const lowerText = userText.toLowerCase();
+    const match = KNOWLEDGE_BASE.find(item => 
+      item.keywords.some(keyword => lowerText.includes(keyword))
+    );
+    return match ? match.response : DEFAULT_RESPONSE;
+  };
+
+  const handleSendMessage = (text = inputValue) => {
+    if (!text.trim()) return;
+
+    // 1. Ajouter le message utilisateur
+    const newMessage = { id: Date.now(), sender: 'user', text: text };
+    setMessages(prev => [...prev, newMessage]);
+    setInputValue("");
+    setIsTyping(true);
+
+    // 2. Simuler délai de réponse + réponse du bot
+    setTimeout(() => {
+      const responseText = generateBotResponse(text);
+      setMessages(prev => [...prev, { id: Date.now() + 1, sender: 'bot', text: responseText }]);
+      setIsTyping(false);
+    }, 1200);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') handleSendMessage();
+  };
+
+  return (
+    <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
+      
+      {/* --- HEADER --- */}
+      <header className="bg-white border-b border-slate-200 shadow-sm z-10 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {/* Logo Placeholder / Image */}
+          <div className="bg-gradient-to-br from-blue-700 to-indigo-800 text-white p-2 rounded-lg shadow-sm">
+             {/* Note: Si l'image uploadée était accessible via URL, on mettrait <img src="..." /> ici. 
+                 J'utilise une icône Shield pour représenter le logo SimplyRights uploadé. */}
+            <Shield size={24} strokeWidth={2.5} />
+          </div>
+          <div>
+            <h1 className="font-bold text-lg text-slate-800 tracking-tight">SimplyRights</h1>
+            <p className="text-xs text-slate-500 font-medium flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+              Assistant Juridique IA
+            </p>
+          </div>
+        </div>
+        <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors">
+          <Menu size={24} />
+        </button>
+      </header>
+
+      {/* --- ZONE DE CHAT --- */}
+      <main className="flex-1 overflow-y-auto p-4 scroll-smooth">
+        <div className="max-w-2xl mx-auto">
+          
+          {/* Messages */}
+          {messages.map((msg) => (
+            <ChatMessage key={msg.id} message={msg} />
+          ))}
+
+          {/* Indicateur de frappe */}
+          {isTyping && (
+            <div className="flex w-full mb-4 justify-start animate-fade-in">
+               <div className="flex max-w-[80%] items-end">
+                <div className="flex-shrink-0 h-8 w-8 rounded-full bg-blue-600 text-white flex items-center justify-center mr-2">
+                  <Shield size={16} />
+                </div>
+                <div className="bg-white border border-slate-100 p-4 rounded-2xl rounded-tl-none shadow-sm flex gap-1">
+                  <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce delay-75"></div>
+                  <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce delay-150"></div>
+                  <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce delay-300"></div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <div ref={messagesEndRef} />
+        </div>
+      </main>
+
+      {/* --- ACTIONS RAPIDES & INPUT --- */}
+      <div className="bg-white border-t border-slate-200 p-4 pb-6 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        <div className="max-w-2xl mx-auto space-y-4">
+          
+          {/* Boutons suggestions (si c'est le début ou après une réponse) */}
+          <div className="grid grid-cols-4 gap-2 mb-2">
+            <QuickAction icon={Euro} label="Salaire" onClick={() => handleSendMessage("Quel est mon salaire minimum ?")} />
+            <QuickAction icon={Calendar} label="Congés" onClick={() => handleSendMessage("Ai-je droit à des congés révisions ?")} />
+            <QuickAction icon={BookOpen} label="Aides" onClick={() => handleSendMessage("Quelles sont les aides pour alternants ?")} />
+            <QuickAction icon={X} label="Rupture" onClick={() => handleSendMessage("Comment rompre mon contrat ?")} />
+          </div>
+
+          {/* Input Bar */}
+          <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-full border border-slate-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition-all">
+            <input
+              type="text"
+              className="flex-1 bg-transparent border-none px-4 py-2 text-sm focus:outline-none text-slate-800 placeholder:text-slate-400"
+              placeholder="Posez votre question juridique..."
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+            <button 
+              onClick={() => handleSendMessage()}
+              disabled={!inputValue.trim() || isTyping}
+              className={`p-2.5 rounded-full text-white shadow-sm transition-all duration-200 ${
+                !inputValue.trim() || isTyping
+                  ? 'bg-slate-300 cursor-not-allowed' 
+                  : 'bg-blue-600 hover:bg-blue-700 hover:scale-105 active:scale-95'
+              }`}
+            >
+              <Send size={18} className={inputValue.trim() && !isTyping ? "ml-0.5" : ""} />
+            </button>
+          </div>
+          
+          <p className="text-center text-[10px] text-slate-400 mt-2">
+            SimplyRights IA peut faire des erreurs. Vérifiez les informations auprès d'un juriste.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
